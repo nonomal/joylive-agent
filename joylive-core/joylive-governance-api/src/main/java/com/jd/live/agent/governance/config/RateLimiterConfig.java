@@ -26,9 +26,9 @@ import lombok.Setter;
 public class RateLimiterConfig {
 
     /**
-     * The type of the rate limiter. Default is "Resilience4j".
+     * The type of the rate limiter.
      */
-    private String type = "Resilience4j";
+    private String type;
 
     /**
      * The interval in milliseconds at which the rate limiter should clean up expired entries.

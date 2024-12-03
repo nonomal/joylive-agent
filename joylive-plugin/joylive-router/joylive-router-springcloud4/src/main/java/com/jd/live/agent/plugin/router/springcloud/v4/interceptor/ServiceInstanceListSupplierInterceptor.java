@@ -17,6 +17,8 @@ package com.jd.live.agent.plugin.router.springcloud.v4.interceptor;
 
 import com.jd.live.agent.bootstrap.bytekit.context.ExecutableContext;
 import com.jd.live.agent.bootstrap.bytekit.context.MethodContext;
+import com.jd.live.agent.bootstrap.logger.Logger;
+import com.jd.live.agent.bootstrap.logger.LoggerFactory;
 import com.jd.live.agent.core.plugin.definition.InterceptorAdaptor;
 import com.jd.live.agent.core.util.CollectionUtils;
 import com.jd.live.agent.governance.context.RequestContext;
@@ -41,6 +43,7 @@ import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -52,18 +55,29 @@ import java.util.Set;
  */
 public class ServiceInstanceListSupplierInterceptor extends InterceptorAdaptor {
 
+    private static final Logger logger = LoggerFactory.getLogger(ServiceInstanceListSupplierInterceptor.class);
+
     private static final ThreadLocal<Long> LOCK = new ThreadLocal<>();
 
     private final InvocationContext context;
 
     private final Set<String> disableDiscovery;
 
-    private final boolean flowControlEnabled;
-
-    public ServiceInstanceListSupplierInterceptor(InvocationContext context, Set<String> disableDiscovery, boolean flowControlEnabled) {
+    public ServiceInstanceListSupplierInterceptor(InvocationContext context, Set<String> disableDiscovery) {
         this.context = context;
-        this.disableDiscovery = disableDiscovery;
-        this.flowControlEnabled = flowControlEnabled;
+        this.disableDiscovery = disableDiscovery == null ? new HashSet<>() : new HashSet<>(disableDiscovery);
+        if (context.isLiveEnabled()) {
+            this.disableDiscovery.add("org.springframework.cloud.loadbalancer.core.ZonePreferenceServiceInstanceListSupplier");
+            this.disableDiscovery.add("org.springframework.cloud.loadbalancer.core.SubsetServiceInstanceListSupplier");
+            this.disableDiscovery.add("org.springframework.cloud.loadbalancer.core.SameInstancePreferenceServiceInstanceListSupplier");
+            this.disableDiscovery.add("org.springframework.cloud.loadbalancer.core.RequestBasedStickySessionServiceInstanceListSupplier");
+        }
+        if (context.isFlowControlEnabled()) {
+            this.disableDiscovery.add("org.springframework.cloud.loadbalancer.core.SameInstancePreferenceServiceInstanceListSupplier");
+            this.disableDiscovery.add("org.springframework.cloud.loadbalancer.core.RequestBasedStickySessionServiceInstanceListSupplier");
+            this.disableDiscovery.add("org.springframework.cloud.loadbalancer.core.RetryAwareServiceInstanceListSupplier");
+            this.disableDiscovery.add("org.springframework.cloud.loadbalancer.core.WeightedServiceInstanceListSupplier");
+        }
     }
 
     @Override
@@ -76,12 +90,8 @@ public class ServiceInstanceListSupplierInterceptor extends InterceptorAdaptor {
                 && disableDiscovery.contains(target.getClass().getName())) {
             // disable
             DelegatingServiceInstanceListSupplier delegating = (DelegatingServiceInstanceListSupplier) target;
-            Request<?> request = ctx.getArgument(0);
-            Object result = delegating.getDelegate().get(request);
-            mc.setResult(result);
-            mc.setSkip(true);
-        }
-        if (!flowControlEnabled && LOCK.get() == null) {
+            mc.skipWithResult(delegating.getDelegate().get(ctx.getArgument(0)));
+        } else if (!context.isFlowControlEnabled() && LOCK.get() == null) {
             // Prevent duplicate calls
             LOCK.set(ctx.getId());
         }
@@ -89,21 +99,15 @@ public class ServiceInstanceListSupplierInterceptor extends InterceptorAdaptor {
 
     @Override
     public void onExit(ExecutableContext ctx) {
-        if (!flowControlEnabled && LOCK.get() == ctx.getId()) {
+        if (!context.isFlowControlEnabled() && LOCK.get() == ctx.getId()) {
             LOCK.remove();
         }
     }
 
-    /**
-     * Enhanced logic after method execution
-     *
-     * @param ctx ExecutableContext
-     * @see org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier#get(org.springframework.cloud.client.loadbalancer.Request)
-     */
     @SuppressWarnings("unchecked")
     @Override
     public void onSuccess(ExecutableContext ctx) {
-        if (!flowControlEnabled && LOCK.get() == ctx.getId()) {
+        if (!context.isFlowControlEnabled() && LOCK.get() == ctx.getId()) {
             MethodContext mc = (MethodContext) ctx;
             Object[] arguments = ctx.getArguments();
             Object result = mc.getResult();
@@ -128,6 +132,7 @@ public class ServiceInstanceListSupplierInterceptor extends InterceptorAdaptor {
             SpringEndpoint endpoint = context.route(invocation);
             return Collections.singletonList(endpoint.getInstance());
         } catch (Throwable e) {
+            logger.error("Exception occurred when routing, caused by " + e.getMessage(), e);
             SpringOutboundThrower<HttpOutboundRequest> thrower = new SpringOutboundThrower<>();
             Throwable throwable =  thrower.createException(e, invocation.getRequest());
             if (throwable instanceof RuntimeException) {
@@ -157,12 +162,6 @@ public class ServiceInstanceListSupplierInterceptor extends InterceptorAdaptor {
 
     /**
      * Creates an {@link OutboundInvocation} for the given {@link HttpOutboundRequest}.
-     * <p>
-     * This method checks if the current context is designated as a gateway and creates either a
-     * {@link GatewayHttpOutboundInvocation} or a standard {@link HttpOutboundInvocation} accordingly.
-     * The determination of the gateway status can come from the {@link RequestContext} or fallback to
-     * the application's service configuration.
-     * </p>
      *
      * @param request The HTTP outbound request for which to create the {@code OutboundInvocation}.
      * @return An instance of {@code OutboundInvocation} tailored for gateway or non-gateway operation.
@@ -176,11 +175,6 @@ public class ServiceInstanceListSupplierInterceptor extends InterceptorAdaptor {
 
     /**
      * Creates a {@link RequestDataContext} from a given {@link RequestDataContext}.
-     * <p>
-     * This method constructs a {@code RequestDataLbRequest} using the client request and service ID from
-     * the provided context. If the context is an instance of {@link RetryableRequestContext}, it also
-     * records any previous service instance attempts to the {@code RequestDataLbRequest} for retry logic.
-     * </p>
      *
      * @param context The request data context containing information needed to create the outbound request.
      * @return A newly created {@code RequestDataLbRequest} with context and potentially retry information.

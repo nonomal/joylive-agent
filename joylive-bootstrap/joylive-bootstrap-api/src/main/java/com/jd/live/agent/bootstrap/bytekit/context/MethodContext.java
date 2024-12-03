@@ -20,7 +20,6 @@ import lombok.Setter;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 
 /**
  * A context representing the execution state of a method.
@@ -37,7 +36,6 @@ public class MethodContext extends ExecutableContext {
      * The result of the method execution.
      */
     @Setter
-    @Getter
     private Object result;
 
     /**
@@ -71,6 +69,25 @@ public class MethodContext extends ExecutableContext {
         return skip;
     }
 
+    public void skip() {
+        setSkip(true);
+    }
+
+    public void skipWithResult(Object result) {
+        setResult(result);
+        skip();
+    }
+
+    public void skipWithThrowable(Throwable throwable) {
+        setThrowable(throwable);
+        skip();
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T getResult() {
+        return (T) result;
+    }
+
     /**
      * Marks the execution as successful and sets the result.
      *
@@ -81,20 +98,43 @@ public class MethodContext extends ExecutableContext {
         setThrowable(null);
     }
 
-    public Object invoke() throws InvocationTargetException, IllegalAccessException {
-        if (!method.isAccessible()) {
-            method.setAccessible(true);
+    /**
+     * Invokes the target method with the specified arguments.
+     *
+     * @return the result of the method invocation.
+     * @throws Exception if any exception occurs during the method invocation.
+     */
+    public Object invokeOrigin() throws Exception {
+        return invokeOrigin(target);
+    }
+
+    /**
+     * Invokes the target method with the specified arguments.
+     *
+     * @param target the target.
+     * @return the result of the method invocation.
+     * @throws Exception if any exception occurs during the method invocation.
+     */
+    public Object invokeOrigin(Object target) throws Exception {
+        try {
+            markOrigin();
+            if (!method.isAccessible()) {
+                method.setAccessible(true);
+            }
+            return method.invoke(target, arguments);
+        } catch (InvocationTargetException e) {
+            if (e.getCause() != null) {
+                return e.getCause();
+            }
+            return e;
+        } finally {
+            getAndRemoveOrigin();
         }
-        return method.invoke(target, arguments);
     }
 
     @Override
     public String toString() {
-        return "MethodContext{" +
-                "type=" + type +
-                ", method=" + method +
-                ", arguments=" + Arrays.toString(arguments) +
-                '}';
+        return description;
     }
 }
 

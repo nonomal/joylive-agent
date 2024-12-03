@@ -16,9 +16,8 @@
 package com.jd.live.agent.implement.service.policy.multilive.config;
 
 import com.jd.live.agent.core.config.SyncConfig;
-import com.jd.live.agent.core.util.StringUtils;
-import com.jd.live.agent.governance.policy.service.MergePolicy;
-import lombok.Getter;
+import com.jd.live.agent.governance.service.sync.SyncAddress.LiveSpaceAddress;
+import com.jd.live.agent.governance.service.sync.SyncAddress.ServiceAddress;
 import lombok.Setter;
 
 /**
@@ -27,35 +26,22 @@ import lombok.Setter;
  * @since 1.0.0
  */
 @Setter
-public class LiveSyncConfig extends SyncConfig {
+public class LiveSyncConfig extends SyncConfig implements ServiceAddress, LiveSpaceAddress {
 
-    private String spacesUrl;
+    private LiveConfig multilive = new LiveConfig();
 
-    private String spaceUrl;
-
-    private String serviceUrl;
-
-    @Getter
-    private MergePolicy policy = MergePolicy.LIVE;
-
-    public String getSpacesUrl() {
-        if (serviceUrl == null && getUrl() != null) {
-            serviceUrl = StringUtils.url(getUrl(), "/workspaces");
-        }
-        return spacesUrl;
+    @Override
+    public String getLiveSpacesUrl() {
+        return getPath(multilive.spacesUrl, "/workspaces");
     }
 
-    public String getSpaceUrl() {
-        if (spaceUrl == null && getUrl() != null) {
-            spaceUrl = StringUtils.url(getUrl(), "/workspaces/${space_id}/version/${space_version}");
-        }
-        return spaceUrl;
+    @Override
+    public String getLiveSpaceUrl() {
+        return getPath(multilive.spaceUrl, "/workspaces/${space_id}/version/${space_version}");
     }
 
+    @Override
     public String getServiceUrl() {
-        if (serviceUrl == null && getUrl() != null) {
-            serviceUrl = StringUtils.url(getUrl(), "/services/${service_name}/version/${service_version}");
-        }
-        return serviceUrl;
+        return getPath(multilive.serviceUrl, "/services/${service_name}/version/${service_version}");
     }
 }

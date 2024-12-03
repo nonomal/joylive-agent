@@ -2,8 +2,8 @@ package com.jd.live.agent.governance.invoke.metadata.parser;
 
 import com.jd.live.agent.core.Constants;
 import com.jd.live.agent.core.instance.Application;
+import com.jd.live.agent.core.instance.Location;
 import com.jd.live.agent.core.util.matcher.Matcher;
-import com.jd.live.agent.core.util.option.Converts;
 import com.jd.live.agent.governance.config.LaneConfig;
 import com.jd.live.agent.governance.context.RequestContext;
 import com.jd.live.agent.governance.context.bag.Cargo;
@@ -15,9 +15,6 @@ import com.jd.live.agent.governance.policy.domain.DomainPolicy;
 import com.jd.live.agent.governance.policy.lane.*;
 import com.jd.live.agent.governance.request.ServiceRequest;
 import com.jd.live.agent.governance.rule.tag.TagCondition;
-import com.jd.live.agent.governance.rule.tag.TagGroup;
-
-import java.util.Map;
 
 /**
  * The {@code LaneMetadataParser} class is responsible for parsing metadata related to lanes,
@@ -66,38 +63,123 @@ public class LaneMetadataParser implements LaneParser {
      */
     @Override
     public LaneMetadata parse() {
-        LaneSpace laneSpace = parseLaneSpace();
-        Lane currentLane = laneSpace == null ? null : laneSpace.getLane(application.getLocation().getLane());
-        Lane targetLane = laneSpace == null ? null : laneSpace.getLane(parseLane(laneSpace));
-        targetLane = targetLane == null && laneSpace != null ? laneSpace.getDefaultLane() : targetLane;
-        return LaneMetadata.builder()
+        Location location = application.getLocation();
+
+        // target space
+        String targetSpaceId = parseLaneSpace();
+        LaneSpace targetSpace = governancePolicy == null ? null : governancePolicy.getLaneSpace(targetSpaceId);
+        targetSpaceId = targetSpace == null ? targetSpaceId : targetSpace.getId();
+
+        // target lane
+        String targetLaneId = parseLane(targetSpaceId, targetSpace);
+        Lane targetLane = targetSpace == null ? null : targetSpace.getLane(targetLaneId);
+        targetLaneId = targetLane == null ? targetLaneId : targetLane.getCode();
+
+        // local space
+        String localSpaceId = location.getLaneSpaceId();
+        LaneSpace localSpace = governancePolicy == null ? null : governancePolicy.getLaneSpace(localSpaceId);
+        localSpaceId = localSpace == null ? localSpaceId : localSpace.getId();
+
+        // local lane
+        String localLaneId = location.getLane();
+        Lane localLane = localSpace == null ? null : localSpace.getLane(localLaneId);
+        localLaneId = localLane == null ? localLaneId : localLane.getCode();
+
+        // default space
+        LaneSpace defaultSpace = governancePolicy == null ? null : governancePolicy.getDefaultLaneSpace();
+        String defaultSpaceId = defaultSpace == null ? null : defaultSpace.getId();
+
+        // default lane
+        Lane defaultLane = defaultSpace == null ? null : defaultSpace.getDefaultLane();
+        String defaultLaneId = defaultLane == null ? null : defaultLane.getCode();
+
+        LaneMetadata metadata = LaneMetadata.builder()
                 .laneConfig(laneConfig)
-                .laneSpace(laneSpace)
-                .currentLane(currentLane)
-                .targetLane(targetLane).build();
+                .targetSpaceId(targetSpaceId)
+                .targetSpace(targetSpace)
+                .targetLaneId(targetLaneId)
+                .targetLane(targetLane)
+                .localSpaceId(localSpaceId)
+                .localSpace(localSpace)
+                .localLaneId(localLaneId)
+                .localLane(localLane)
+                .defaultSpaceId(defaultSpaceId)
+                .defaultSpace(defaultSpace)
+                .defaultLaneId(defaultLaneId)
+                .defaultLane(defaultLane)
+                .build();
+        inject(metadata);
+        return metadata;
     }
 
     /**
      * Parses the lane space based on the lane configuration and application location.
      *
-     * @return The lane space object, or null if not found.
+     * @return The lane space id, or null if not found.
      */
-    protected LaneSpace parseLaneSpace() {
+    protected String parseLaneSpace() {
         Cargo cargo = RequestContext.getCargo(Constants.LABEL_LANE_SPACE_ID);
-        String laneSpaceId = cargo == null ? null : Converts.getString(cargo.getFirstValue());
-        laneSpaceId = laneSpaceId != null ? laneSpaceId : application.getLocation().getLaneSpaceId();
-        return governancePolicy == null ? null : governancePolicy.getLaneSpace(laneSpaceId);
+        String laneSpaceId = cargo == null ? null : cargo.getFirstValue();
+        if ((laneSpaceId == null || laneSpaceId.isEmpty()) && laneConfig.isFallbackLocationIfNoSpace()) {
+            laneSpaceId = application.getLocation().getLaneSpaceId();
+        }
+        return laneSpaceId;
     }
 
     /**
      * Parses the lane code from the request context.
      *
-     * @param laneSpace lane space
+     * @param laneSpaceId  The lane space id.
+     * @param laneSpace    The lane space.
      * @return The lane code as a String, or null if not found.
      */
-    protected String parseLane(LaneSpace laneSpace) {
+    protected String parseLane(String laneSpaceId, LaneSpace laneSpace) {
         Cargo cargo = RequestContext.getCargo(Constants.LABEL_LANE);
-        return cargo == null ? null : cargo.getFirstValue();
+        String lane = cargo == null ? null : cargo.getFirstValue();
+        Location location = application.getLocation();
+        if ((lane == null || lane.isEmpty())
+                && laneSpaceId != null
+                && laneSpaceId.equals(location.getLaneSpaceId())
+                && laneConfig.isFallbackLocationIfNoSpace()) {
+            lane = location.getLane();
+        }
+        return lane;
+    }
+
+    /**
+     * Injects the lane metadata into the current request context, updating the carrier with space ID and lane code.
+     *
+     * @param metadata the lane metadata to inject into the request context
+     */
+    protected void inject(LaneMetadata metadata) {
+        Carrier carrier = RequestContext.getOrCreate();
+        if (metadata.getTargetSpaceId() != null
+                && !metadata.getTargetSpaceId().isEmpty()) {
+            addCargo(carrier, metadata);
+        } else {
+            removeCargo(carrier);
+        }
+    }
+
+    /**
+     * Adds Lane Space ID and Lane ID to the given Carrier object.
+     *
+     * @param carrier  the Carrier object to add cargo to
+     * @param metadata the LaneMetadata containing the target Lane Space ID and Lane ID
+     */
+    protected void addCargo(Carrier carrier, LaneMetadata metadata) {
+        if (carrier.getCargo(Constants.LABEL_LANE_SPACE_ID) == null) {
+            carrier.setCargo(Constants.LABEL_LANE_SPACE_ID, metadata.getTargetSpaceId());
+            carrier.setCargo(Constants.LABEL_LANE, metadata.getTargetLaneId());
+        }
+    }
+
+    /**
+     * Removes Lane Space ID and Lane ID from the given Carrier object.
+     *
+     * @param carrier the Carrier object to remove cargo from
+     */
+    protected void removeCargo(Carrier carrier) {
     }
 
     /**
@@ -154,55 +236,125 @@ public class LaneMetadataParser implements LaneParser {
         }
 
         @Override
-        public LaneMetadata parse() {
-            LaneMetadata result = super.parse();
+        protected String parseLaneSpace() {
             if (domainPolicy != null) {
-                inject(result);
+                LaneSpace laneSpace = domainPolicy.getLaneSpace();
+                if (laneSpace != null) {
+                    return laneSpace.getId();
+                }
             }
-            return result;
+            return fallbackLaneSpace();
         }
 
         @Override
-        protected LaneSpace parseLaneSpace() {
-            return domainPolicy != null ? domainPolicy.getLaneSpace() : super.parseLaneSpace();
-        }
-
-        @Override
-        protected String parseLane(LaneSpace laneSpace) {
-            if (domainPolicy == null) {
-                return super.parseLane(laneSpace);
-            }
-            LaneDomain laneDomain = domainPolicy.getLaneDomain();
-            LanePath lanePath = laneDomain == null ? null : laneDomain.getPath(request.getPath());
-            if (lanePath != null) {
-                LaneRule laneRule = laneSpace.getLaneRule(lanePath.getRuleId());
-                Map<String, TagGroup> conditions = laneRule == null ? null : laneRule.getConditions();
-                if (conditions != null) {
-                    for (Map.Entry<String, TagGroup> entry : conditions.entrySet()) {
-                        if (entry.getValue().match(matcher)) {
-                            return entry.getKey();
-                        }
+        protected String parseLane(String laneSpaceId, LaneSpace laneSpace) {
+            if (laneSpace != null) {
+                LaneRule laneRule = getLaneRule(laneSpace);
+                if (laneRule != null) {
+                    if (laneRule.match(matcher)) {
+                        return laneRule.getLaneCode();
                     }
                 }
             }
-            return null;
+            return fallbackLane(laneSpaceId, laneSpace);
         }
 
         /**
-         * Injects the lane metadata into the current request context, updating the carrier with space ID and lane code.
+         * Fallback method to parse lane space if the default implementation fails.
          *
-         * @param metadata the lane metadata to inject into the request context
+         * @return the parsed lane space
          */
-        protected void inject(LaneMetadata metadata) {
-            LaneSpace laneSpace = metadata.getLaneSpace();
-            Lane targetLane = metadata.getTargetLane();
-            Carrier carrier = RequestContext.getOrCreate();
-            if (null != targetLane) {
-                carrier.setCargo(Constants.LABEL_LANE_SPACE_ID, laneSpace.getId());
-                carrier.setCargo(Constants.LABEL_LANE, targetLane.getCode());
+        protected String fallbackLaneSpace() {
+            return super.parseLaneSpace();
+        }
+
+        /**
+         * Fallback method to parse lane if the default implementation fails.
+         *
+         * @param laneSpaceId the ID of the lane space
+         * @param laneSpace   the lane space object
+         * @return the parsed lane
+         */
+        protected String fallbackLane(String laneSpaceId, LaneSpace laneSpace) {
+            return super.parseLane(laneSpaceId, laneSpace);
+        }
+
+        /**
+         * Retrieves the LaneRule associated with a given LaneSpace based on the LaneDomain policy.
+         *
+         * @param laneSpace The LaneSpace for which to retrieve the LaneRule
+         * @return The LaneRule associated with the LaneSpace, or null if no rule applies
+         */
+        protected LaneRule getLaneRule(LaneSpace laneSpace) {
+            LaneDomain domain = domainPolicy == null ? null : domainPolicy.getLaneDomain();
+            LaneRule rule = null;
+            if (domain == null) {
+                if (laneSpace.getDomainSize() == 0 && laneSpace.getRuleSize() == 1) {
+                    rule = laneSpace.getRules().get(0);
+                }
             } else {
+                LanePath path = domain.getPath(request.getPath());
+                if (path != null) {
+                    rule = laneSpace.getLaneRule(path.getRuleId());
+                } else if (domain.getPathSize() == 0 && laneSpace.getRuleSize() == 1) {
+                    rule = laneSpace.getRules().get(0);
+                }
+            }
+            return rule;
+        }
+
+    }
+
+    /**
+     * A parser for gateway inbound lane metadata.
+     */
+    public static class GatewayInboundLaneMetadataParser extends HttpInboundLaneMetadataParser {
+
+
+        public GatewayInboundLaneMetadataParser(ServiceRequest request,
+                                                LaneConfig laneConfig,
+                                                Application application,
+                                                GovernancePolicy governancePolicy,
+                                                DomainPolicy domainPolicy,
+                                                Matcher<TagCondition> matcher) {
+            super(request, laneConfig, application, governancePolicy, domainPolicy, matcher);
+        }
+
+        @Override
+        protected String fallbackLaneSpace() {
+            if (application.getService().isFrontGateway()) {
+                return laneConfig.isFallbackLocationIfNoSpace() ? application.getLocation().getLaneSpaceId() : null;
+            } else {
+                return super.fallbackLaneSpace();
+            }
+        }
+
+        @Override
+        protected String fallbackLane(String laneSpaceId, LaneSpace laneSpace) {
+            if (application.getService().isFrontGateway()) {
+                Location location = application.getLocation();
+                return laneSpaceId != null && laneSpaceId.equals(location.getLaneSpaceId()) ? location.getLane() : null;
+            }
+            return super.fallbackLane(laneSpaceId, laneSpace);
+        }
+
+        @Override
+        protected void removeCargo(Carrier carrier) {
+            if (application.getService().isFrontGateway()) {
                 carrier.removeCargo(Constants.LABEL_LANE_SPACE_ID);
                 carrier.removeCargo(Constants.LABEL_LANE);
+            } else {
+                super.removeCargo(carrier);
+            }
+        }
+
+        @Override
+        protected void addCargo(Carrier carrier, LaneMetadata metadata) {
+            if (application.getService().isFrontGateway()) {
+                carrier.setCargo(Constants.LABEL_LANE_SPACE_ID, metadata.getTargetSpaceId());
+                carrier.setCargo(Constants.LABEL_LANE, metadata.getTargetLaneId());
+            } else {
+                super.addCargo(carrier, metadata);
             }
         }
     }

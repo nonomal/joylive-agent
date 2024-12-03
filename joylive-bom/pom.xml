@@ -48,7 +48,7 @@
     </scm>
 
     <properties>
-        <revision>1.4.0-SNAPSHOT</revision>
+        <revision>1.6.0-SNAPSHOT</revision>
     </properties>
 
     <dependencyManagement>
@@ -95,6 +95,11 @@
             </dependency>
             <dependency>
                 <groupId>com.jd.live</groupId>
+                <artifactId>joylive-parser-fastjson2</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jd.live</groupId>
                 <artifactId>joylive-parser-properties</artifactId>
                 <version>${revision}</version>
             </dependency>
@@ -131,6 +136,11 @@
             <dependency>
                 <groupId>com.jd.live</groupId>
                 <artifactId>joylive-service-microservice</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jd.live</groupId>
+                <artifactId>joylive-service-nacos</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
@@ -215,12 +225,22 @@
             </dependency>
             <dependency>
                 <groupId>com.jd.live</groupId>
+                <artifactId>joylive-router-springcloud2</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jd.live</groupId>
                 <artifactId>joylive-router-springcloud3</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.jd.live</groupId>
                 <artifactId>joylive-router-springcloud4</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jd.live</groupId>
+                <artifactId>joylive-router-springgateway2</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
@@ -251,6 +271,11 @@
             <dependency>
                 <groupId>com.jd.live</groupId>
                 <artifactId>joylive-router-sofarpc</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jd.live</groupId>
+                <artifactId>joylive-router-grpc</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
@@ -325,7 +350,12 @@
             </dependency>
             <dependency>
                 <groupId>com.jd.live</groupId>
-                <artifactId>joylive-transmission-httpservlet</artifactId>
+                <artifactId>joylive-transmission-servlet-javax</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jd.live</groupId>
+                <artifactId>joylive-transmission-servlet-jakarta</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>

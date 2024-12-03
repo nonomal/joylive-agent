@@ -18,10 +18,9 @@ package com.jd.live.agent.plugin.registry.dubbo.v3.interceptor;
 import com.jd.live.agent.bootstrap.bytekit.context.ExecutableContext;
 import com.jd.live.agent.bootstrap.bytekit.context.MethodContext;
 import com.jd.live.agent.core.instance.Application;
-import com.jd.live.agent.core.plugin.definition.InterceptorAdaptor;
 import com.jd.live.agent.governance.policy.PolicySupplier;
-import org.apache.dubbo.config.AbstractInterfaceConfig;
 import org.apache.dubbo.config.ApplicationConfig;
+import org.apache.dubbo.config.ServiceConfig;
 
 import java.util.Map;
 
@@ -31,35 +30,28 @@ import static org.apache.dubbo.common.constants.RegistryConstants.DEFAULT_REGIST
 /**
  * ServiceRegistrationInterceptor
  */
-public class ServiceConfigInterceptor extends InterceptorAdaptor {
-
-    private final Application application;
-
-    private final PolicySupplier policySupplier;
+public class ServiceConfigInterceptor extends AbstractConfigInterceptor<ServiceConfig<?>> {
 
     public ServiceConfigInterceptor(Application application, PolicySupplier policySupplier) {
-        this.application = application;
-        this.policySupplier = policySupplier;
+        super(application, policySupplier);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public void onSuccess(ExecutableContext ctx) {
-        MethodContext methodContext = (MethodContext) ctx;
+    protected Map<String, String> getContext(ExecutableContext ctx) {
+        return (Map<String, String>) ((MethodContext) ctx).getResult();
+    }
 
-        Map<String, String> map = (Map<String, String>) methodContext.getResult();
-        application.labelRegistry(map::putIfAbsent);
-
-        AbstractInterfaceConfig config = (AbstractInterfaceConfig) ctx.getTarget();
-        ApplicationConfig application = config.getApplication();
-        String registerMode = application.getRegisterMode();
+    @Override
+    protected int getRegistryType(ServiceConfig<?> config) {
+        ApplicationConfig appCfg = config.getApplication();
+        String registerMode = appCfg.getRegisterMode();
         if (DEFAULT_REGISTER_MODE_INSTANCE.equals(registerMode)) {
-            policySupplier.subscribe(application.getName());
+            return REGISTRY_TYPE_SERVICE;
         } else if (DEFAULT_REGISTER_MODE_INTERFACE.equals(registerMode)) {
-            policySupplier.subscribe(config.getInterface());
+            return REGISTRY_TYPE_INTERFACE;
         } else {
-            policySupplier.subscribe(application.getName());
-            policySupplier.subscribe(config.getInterface());
+            return REGISTRY_TYPE_ALL;
         }
     }
 }

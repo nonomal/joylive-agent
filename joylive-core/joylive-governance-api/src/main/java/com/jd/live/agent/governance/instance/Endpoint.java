@@ -18,6 +18,7 @@ package com.jd.live.agent.governance.instance;
 import com.jd.live.agent.bootstrap.util.Attributes;
 import com.jd.live.agent.core.Constants;
 import com.jd.live.agent.core.util.matcher.Matcher;
+import com.jd.live.agent.core.util.option.Converts;
 import com.jd.live.agent.core.util.tag.Label;
 import com.jd.live.agent.governance.policy.PolicyId;
 import com.jd.live.agent.governance.request.ServiceRequest;
@@ -26,26 +27,13 @@ import com.jd.live.agent.governance.rule.tag.TagCondition;
 import java.util.List;
 import java.util.Set;
 
+import static com.jd.live.agent.core.util.StringUtils.isEqualsOrEmpty;
+
 /**
  * Represents an endpoint in a distributed system, providing methods to access its properties and match against tag conditions.
  * Endpoints are fundamental entities that can represent services, nodes, or instances within a system.
  */
 public interface Endpoint extends Matcher<TagCondition>, Attributes {
-
-    /**
-     * Key for the timestamp property of the endpoint.
-     */
-    String KEY_TIMESTAMP = "timestamp";
-
-    /**
-     * Key for the weight property of the endpoint.
-     */
-    String KEY_WEIGHT = "weight";
-
-    /**
-     * Key for the warmup period property of the endpoint.
-     */
-    String KEY_WARMUP = "warmup";
 
     /**
      * Key for the counter attribute of the endpoint.
@@ -60,7 +48,7 @@ public interface Endpoint extends Matcher<TagCondition>, Attributes {
     /**
      * Default warmup period for the endpoint in milliseconds.
      */
-    int DEFAULT_WARMUP = 10 * 60 * 1000;
+    int DEFAULT_WARMUP = 2 * 60 * 1000;
 
     /**
      * Default weight for the endpoint.
@@ -110,18 +98,52 @@ public interface Endpoint extends Matcher<TagCondition>, Attributes {
      * @return The timestamp, or null if not available.
      */
     default Long getTimestamp() {
-        return null;
+        return Converts.getLong(getLabel(Constants.LABEL_TIMESTAMP), null);
     }
 
     /**
-     * Gets the weight of the endpoint for load balancing purposes.
-     * The weight can influence the distribution of requests among multiple endpoints.
+     * Gets the warm-up time for this endpoint.
      *
-     * @param request The service request for which the weight is being determined.
-     * @return The weight of the endpoint, or null if not specified.
+     * @return the warm-up time in seconds, or the default value if not specified
+     */
+    default Integer getWarmup() {
+        return Converts.getInteger(getLabel(Constants.LABEL_WARMUP), DEFAULT_WARMUP);
+    }
+
+    /**
+     * Gets the weight for the specified service request, taking into account the origin weight and warm-up time.
+     *
+     * @param request the service request for which to get the weight
+     * @return the weight for this endpoint, taking into account the origin weight and warm-up time
      */
     default Integer getWeight(ServiceRequest request) {
-        return null;
+        int weight = getOriginWeight(request);
+        if (weight > 0) {
+            Long timestamp = getTimestamp();
+            if (timestamp != null && timestamp > 0L) {
+                long uptime = System.currentTimeMillis() - timestamp;
+                if (uptime < 0) {
+                    weight = 1;
+                } else {
+                    int warmup = getWarmup();
+                    if (uptime > 0 && uptime < warmup) {
+                        int ww = (int) (uptime / ((float) warmup / weight));
+                        weight = ww < 1 ? 1 : Math.min(ww, weight);
+                    }
+                }
+            }
+        }
+        return Math.max(weight, 0);
+    }
+
+    /**
+     * Gets the origin weight for the specified service request.
+     *
+     * @param request the service request for which to get the origin weight
+     * @return the origin weight, or the default value if not specified
+     */
+    default Integer getOriginWeight(ServiceRequest request) {
+        return Converts.getInteger(getLabel(Constants.LABEL_WEIGHT), DEFAULT_WEIGHT);
     }
 
     /**
@@ -188,12 +210,31 @@ public interface Endpoint extends Matcher<TagCondition>, Attributes {
     }
 
     /**
+     * Gets the lane space ID associated with this endpoint.
+     *
+     * @return The lane space ID, or the default value if not specified.
+     */
+    default String getLaneSpaceId(String defaultValue) {
+        return getLabel(Constants.LABEL_LANE_SPACE_ID, defaultValue);
+    }
+
+    /**
      * Gets the lane associated with this endpoint.
      *
      * @return The lane, or the default value if not specified.
      */
     default String getLane() {
         return getLabel(Constants.LABEL_LANE, Constants.DEFAULT_VALUE);
+    }
+
+    /**
+     * Gets the lane associated with this endpoint.
+     *
+     * @param defaultValue The default value to return if the lane is not specified.
+     * @return The lane, or the default value if not specified.
+     */
+    default String getLane(String defaultValue) {
+        return getLabel(Constants.LABEL_LANE, defaultValue);
     }
 
     /**
@@ -293,34 +334,16 @@ public interface Endpoint extends Matcher<TagCondition>, Attributes {
     }
 
     /**
-     * Determines if the lane space ID matches the specified lane space ID.
-     *
-     * @param laneSpaceId The lane space ID to match.
-     * @return true if the lane space ID matches, false otherwise.
-     */
-    default boolean isLaneSpace(String laneSpaceId) {
-        return laneSpaceId != null && laneSpaceId.equals(getLaneSpaceId());
-    }
-
-    /**
-     * Determines if the lane matches the specified lane.
-     *
-     * @param lane The lane to match.
-     * @return true if the lane matches, false otherwise.
-     */
-    default boolean isLane(String lane) {
-        return lane != null && lane.equals(getLane());
-    }
-
-    /**
      * Determines if the lane space and lane match the specified lane space ID and lane.
      *
-     * @param laneSpaceId The lane space ID to match.
-     * @param lane        The lane to match.
+     * @param laneSpaceId    The lane space ID to match.
+     * @param lane           The lane to match.
+     * @param defaultSpaceId The default lane space ID.
+     * @param defaultLane    The default lane.
      * @return true if both the lane space ID and lane match, false otherwise.
      */
-    default boolean isLane(String laneSpaceId, String lane) {
-        return isLaneSpace(laneSpaceId) && isLane(lane);
+    default boolean isLane(String laneSpaceId, String lane, String defaultSpaceId, String defaultLane) {
+        return isEqualsOrEmpty(getLaneSpaceId(defaultSpaceId), laneSpaceId) && isEqualsOrEmpty(getLane(defaultLane), lane);
     }
 
     /**
@@ -331,6 +354,16 @@ public interface Endpoint extends Matcher<TagCondition>, Attributes {
      */
     default boolean isCloud(String cloud) {
         return cloud != null && !cloud.isEmpty() && cloud.equals(getLabel(Constants.LABEL_CLOUD));
+    }
+
+    /**
+     * Determines if the cluster label matches the specified cluster.
+     *
+     * @param cluster The cluster to match.
+     * @return true if the unit matches, false otherwise.
+     */
+    default boolean isCluster(String cluster) {
+        return cluster != null && !cluster.isEmpty() && cluster.equals(getLabel(Constants.LABEL_CLUSTER));
     }
 
     /**
@@ -377,7 +410,7 @@ public interface Endpoint extends Matcher<TagCondition>, Attributes {
      */
     default String getLabel(String key, String defaultValue) {
         String result = getLabel(key);
-        return result == null ? defaultValue : result;
+        return result == null || result.isEmpty() ? defaultValue : result;
     }
 
     /**

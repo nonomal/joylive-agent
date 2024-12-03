@@ -20,7 +20,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.jd.live.agent.core.extension.annotation.Extension;
 import com.jd.live.agent.core.parser.ObjectParser;
 
-@Extension(value = {ObjectParser.YAML, ObjectParser.YML}, provider = "jackson")
+@Extension(value = {ObjectParser.YAML, ObjectParser.YML}, provider = "jackson", order = 1)
 public class JacksonYamlParser extends AbstractJacksonParser {
 
     @Override

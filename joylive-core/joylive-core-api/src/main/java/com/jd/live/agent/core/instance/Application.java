@@ -101,12 +101,16 @@ public class Application {
     @Setter
     private volatile AppStatus status = AppStatus.STARTING;
 
+    @Setter
+    private Long timestamp;
+
     /**
      * Default constructor initializes the process ID and instance with a unique application ID.
      */
     public Application() {
         this.pid = pid();
         this.instance = APP_ID;
+        this.timestamp = System.currentTimeMillis();
     }
 
     /**
@@ -150,11 +154,46 @@ public class Application {
     }
 
     /**
+     * Labels the given metadata with a set of predefined keys and values.
+     *
+     * @param metadata A Map of metadata to be labeled.
+     * @param consumer A BiConsumer that will be called for each key-value pair.
+     */
+    public static void label(Map<String, String> metadata, BiConsumer<String, String> consumer) {
+        accept(consumer, Constants.LABEL_APPLICATION, metadata.get(Constants.LABEL_APPLICATION));
+        accept(consumer, Constants.LABEL_INSTANCE_ID, metadata.get(Constants.LABEL_INSTANCE_ID));
+        accept(consumer, Constants.LABEL_TIMESTAMP, metadata.get(Constants.LABEL_TIMESTAMP));
+        accept(consumer, Constants.LABEL_CLOUD, metadata.get(Constants.LABEL_CLOUD));
+        accept(consumer, Constants.LABEL_REGION, metadata.get(Constants.LABEL_REGION));
+        accept(consumer, Constants.LABEL_ZONE, metadata.get(Constants.LABEL_ZONE));
+        accept(consumer, Constants.LABEL_CLUSTER, metadata.get(Constants.LABEL_CLUSTER));
+        accept(consumer, Constants.LABEL_LIVE_SPACE_ID, metadata.get(Constants.LABEL_LIVE_SPACE_ID));
+        accept(consumer, Constants.LABEL_RULE_ID, metadata.get(Constants.LABEL_RULE_ID));
+        accept(consumer, Constants.LABEL_UNIT, metadata.get(Constants.LABEL_UNIT));
+        accept(consumer, Constants.LABEL_CELL, metadata.get(Constants.LABEL_CELL));
+        accept(consumer, Constants.LABEL_LANE_SPACE_ID, metadata.get(Constants.LABEL_LANE_SPACE_ID));
+        accept(consumer, Constants.LABEL_LANE, metadata.get(Constants.LABEL_LANE));
+        accept(consumer, Constants.LABEL_WEIGHT, metadata.get(Constants.LABEL_WEIGHT));
+        accept(consumer, Constants.LABEL_WARMUP, metadata.get(Constants.LABEL_WARMUP));
+        accept(consumer, Constants.LABEL_SERVICE_GROUP, metadata.get(Constants.LABEL_SERVICE_GROUP));
+    }
+
+    /**
      * Applies labels to the application based on its properties.
      *
      * @param consumer label consumer
      */
     public void labelRegistry(BiConsumer<String, String> consumer) {
+        labelRegistry(consumer, false);
+    }
+
+    /**
+     * Applies labels to the application based on its properties.
+     *
+     * @param consumer     label consumer
+     * @param serviceGroup a flag indicating whether to include the service group in the labeling process.
+     */
+    public void labelRegistry(BiConsumer<String, String> consumer, boolean serviceGroup) {
         if (consumer != null) {
             labelInstance(consumer);
             if (location != null) {
@@ -162,7 +201,7 @@ public class Application {
                 labelLiveSpace(consumer);
                 labelLane(consumer);
             }
-            labelService(consumer);
+            labelService(consumer, serviceGroup);
         }
     }
 
@@ -194,16 +233,20 @@ public class Application {
     private void labelInstance(BiConsumer<String, String> consumer) {
         accept(consumer, Constants.LABEL_APPLICATION, name);
         accept(consumer, Constants.LABEL_INSTANCE_ID, instance);
+        accept(consumer, Constants.LABEL_TIMESTAMP, timestamp == null ? null : String.valueOf(timestamp));
     }
 
     /**
      * Labels the service information using the provided consumer.
      *
-     * @param consumer the consumer to use for labeling
+     * @param consumer the BiConsumer to use for labeling. It takes two parameters: the label key and the label value.
+     * @param group    a flag indicating whether to include the service group in the labeling process.
      */
-    private void labelService(BiConsumer<String, String> consumer) {
+    private void labelService(BiConsumer<String, String> consumer, boolean group) {
         if (service != null) {
-            accept(consumer, Constants.LABEL_SERVICE_GROUP, service.getGroup());
+            accept(consumer, Constants.LABEL_WEIGHT, service.getWeight() == null ? null : service.getWeight().toString());
+            accept(consumer, Constants.LABEL_WARMUP, service.getWarmupDuration() == null ? null : service.getWarmupDuration().toString());
+            accept(consumer, Constants.LABEL_SERVICE_GROUP, !group ? null : service.getGroup());
             Map<String, String> serviceMeta = service.getMeta();
             if (serviceMeta != null) {
                 serviceMeta.forEach(consumer);
@@ -256,8 +299,8 @@ public class Application {
      * @param key      label key
      * @param value    label value
      */
-    private void accept(BiConsumer<String, String> consumer, String key, String value) {
-        if (consumer != null && key != null && value != null) {
+    private static void accept(BiConsumer<String, String> consumer, String key, String value) {
+        if (consumer != null && key != null && !key.isEmpty() && value != null && !value.isEmpty()) {
             consumer.accept(key, value);
         }
     }

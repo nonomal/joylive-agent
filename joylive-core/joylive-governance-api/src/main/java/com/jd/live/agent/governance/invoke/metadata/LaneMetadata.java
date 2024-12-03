@@ -19,17 +19,66 @@ public class LaneMetadata {
     private LaneConfig laneConfig;
 
     /**
-     * The lane space context for this invocation.
+     * The target lance space id for this invocation
      */
-    private LaneSpace laneSpace;
+    private String targetSpaceId;
 
     /**
-     * The current lane context for this invocation.
+     * The target lane space context for this invocation.
      */
-    private Lane currentLane;
+    private LaneSpace targetSpace;
+
+    /**
+     * The target lane id for this invocation
+     */
+    private String targetLaneId;
 
     /**
      * The target lane for this invocation.
      */
     private Lane targetLane;
+
+    /**
+     * The local lane space id for this invocation.
+     */
+    private String localSpaceId;
+
+    /**
+     * The local lance space for this invocation.
+     */
+    private LaneSpace localSpace;
+
+    /**
+     * The local lane id for this invocation.
+     */
+    private String localLaneId;
+
+    /**
+     * The local lane for this invocation.
+     */
+    private Lane localLane;
+
+    /**
+     * The default lane space id for this invocation.
+     */
+    private String defaultSpaceId;
+
+    /**
+     * The default lance space for this invocation.
+     */
+    private LaneSpace defaultSpace;
+
+    /**
+     * The default lane id for this invocation.
+     */
+    private String defaultLaneId;
+
+    /**
+     * The default lane for this invocation.
+     */
+    private Lane defaultLane;
+
+    public Lane getTargetLaneOrDefault(Lane defaultLane) {
+        return targetLane == null ? defaultLane : targetLane;
+    }
 }

@@ -21,6 +21,9 @@ import com.jd.live.agent.core.util.Close;
 import com.jd.live.agent.core.util.IOUtils;
 import com.jd.live.agent.core.util.cache.UnsafeLazyObject;
 import com.jd.live.agent.core.util.http.HttpUtils;
+import com.jd.live.agent.core.util.map.CaseInsensitiveLinkedMap;
+import com.jd.live.agent.core.util.map.MultiLinkedMap;
+import com.jd.live.agent.core.util.map.MultiMap;
 import com.jd.live.agent.governance.exception.ErrorPredicate;
 import com.jd.live.agent.governance.exception.ServiceError;
 import com.jd.live.agent.governance.response.AbstractHttpResponse.AbstractHttpOutboundResponse;
@@ -28,8 +31,6 @@ import feign.Response;
 import org.springframework.http.HttpHeaders;
 
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -69,14 +70,18 @@ public class FeignClusterResponse extends AbstractHttpOutboundResponse<Response>
                 try {
                     InputStream in = bodied.asInputStream();
                     body = IOUtils.read(in);
-                    response = Response.builder()
+                    Response.Builder builder = Response.builder()
                             .body(body)
                             .headers(response.headers())
-                            .protocolVersion(response.protocolVersion())
                             .reason(response.reason())
                             .request(response.request())
-                            .status(response.status())
-                            .build();
+                            .status(response.status());
+                    // fix for spring cloud 2020
+                    try {
+                        builder.protocolVersion(response.protocolVersion());
+                    } catch (Throwable ignored) {
+                    }
+                    response = builder.build();
                     Close.instance().close(in);
                 } catch (Throwable e) {
                     logger.error(e.getMessage(), e);
@@ -91,14 +96,8 @@ public class FeignClusterResponse extends AbstractHttpOutboundResponse<Response>
         if (response == null || response.headers() == null) {
             return null;
         }
-        Map<String, List<String>> headers = new HashMap<>();
-        response.headers().forEach((k, v) -> {
-            if (v instanceof List) {
-                headers.put(k, (List<String>) v);
-            } else {
-                headers.put(k, new ArrayList<>(v));
-            }
-        });
+        MultiMap<String, String> headers = new MultiLinkedMap<>(CaseInsensitiveLinkedMap::new);
+        response.headers().forEach(headers::setAll);
         return headers;
     }
 

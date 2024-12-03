@@ -18,11 +18,13 @@ package com.jd.live.agent.plugin.router.dubbo.v2_6.interceptor;
 import com.alibaba.dubbo.rpc.Invocation;
 import com.alibaba.dubbo.rpc.Invoker;
 import com.alibaba.dubbo.rpc.cluster.support.AbstractClusterInvoker;
-import com.jd.live.agent.plugin.router.dubbo.v2_6.exception.Dubbo26OutboundThrower;
 import com.jd.live.agent.bootstrap.bytekit.context.ExecutableContext;
 import com.jd.live.agent.bootstrap.bytekit.context.MethodContext;
+import com.jd.live.agent.bootstrap.logger.Logger;
+import com.jd.live.agent.bootstrap.logger.LoggerFactory;
 import com.jd.live.agent.core.plugin.definition.InterceptorAdaptor;
 import com.jd.live.agent.governance.invoke.InvocationContext;
+import com.jd.live.agent.plugin.router.dubbo.v2_6.exception.Dubbo26OutboundThrower;
 import com.jd.live.agent.plugin.router.dubbo.v2_6.instance.DubboEndpoint;
 import com.jd.live.agent.plugin.router.dubbo.v2_6.request.DubboRequest.DubboOutboundRequest;
 import com.jd.live.agent.plugin.router.dubbo.v2_6.request.invoke.DubboInvocation.DubboOutboundInvocation;
@@ -33,6 +35,8 @@ import java.util.List;
  * LoadBalanceInterceptor
  */
 public class LoadBalanceInterceptor extends InterceptorAdaptor {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoadBalanceInterceptor.class);
 
     private final InvocationContext context;
 
@@ -61,12 +65,12 @@ public class LoadBalanceInterceptor extends InterceptorAdaptor {
                     invoked.forEach(p -> request.addAttempt(new DubboEndpoint<>(p).getId()));
                 }
                 DubboEndpoint<?> endpoint = context.route(invocation, invokers, DubboEndpoint::of);
-                mc.setResult(endpoint.getInvoker());
+                mc.skipWithResult(endpoint.getInvoker());
             } catch (Throwable e) {
+                logger.error("Exception occurred when routing, caused by " + e.getMessage(), e);
                 Dubbo26OutboundThrower thrower = new Dubbo26OutboundThrower((AbstractClusterInvoker<?>) ctx.getTarget());
-                mc.setThrowable(thrower.createException(e, request));
+                mc.skipWithThrowable(thrower.createException(e, request));
             }
-            mc.setSkip(true);
         }
     }
 

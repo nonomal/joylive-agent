@@ -34,19 +34,13 @@ public class ClientCallImplDefinition extends PluginDefinitionAdapter {
 
     public static final String TYPE_CLIENT_CALL_IMPL = "io.grpc.internal.ClientCallImpl";
 
-    private static final String METHOD_START = "start";
-
-    private static final String[] ARGUMENTS_START = new String[]{
-            "io.grpc.ClientCall.Listener",
-            "io.grpc.Metadata"
-    };
+    private static final String METHOD_PREPARE_HEADERS = "prepareHeaders";
 
 
     public ClientCallImplDefinition() {
         super(MatcherBuilder.named(TYPE_CLIENT_CALL_IMPL),
                 new InterceptorDefinitionAdapter(
-                        MatcherBuilder.named(METHOD_START).
-                                and(MatcherBuilder.arguments(ARGUMENTS_START)),
+                        MatcherBuilder.named(METHOD_PREPARE_HEADERS),
                         new ClientCallImplInterceptor()));
     }
 }

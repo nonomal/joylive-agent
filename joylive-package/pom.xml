@@ -53,6 +53,10 @@
         </dependency>
         <dependency>
             <groupId>com.jd.live</groupId>
+            <artifactId>joylive-parser-fastjson2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.jd.live</groupId>
             <artifactId>joylive-parser-properties</artifactId>
         </dependency>
         <dependency>
@@ -82,6 +86,10 @@
         <dependency>
             <groupId>com.jd.live</groupId>
             <artifactId>joylive-service-microservice</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.jd.live</groupId>
+            <artifactId>joylive-service-nacos</artifactId>
         </dependency>
         <dependency>
             <groupId>com.jd.live</groupId>
@@ -141,6 +149,10 @@
         </dependency>
         <dependency>
             <groupId>com.jd.live</groupId>
+            <artifactId>joylive-router-springcloud2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.jd.live</groupId>
             <artifactId>joylive-router-springcloud3</artifactId>
         </dependency>
         <dependency>
@@ -154,6 +166,10 @@
         <dependency>
             <groupId>com.jd.live</groupId>
             <artifactId>joylive-registry-springgateway4</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.jd.live</groupId>
+            <artifactId>joylive-router-springgateway2</artifactId>
         </dependency>
         <dependency>
             <groupId>com.jd.live</groupId>
@@ -186,6 +202,10 @@
         <dependency>
             <groupId>com.jd.live</groupId>
             <artifactId>joylive-router-rocketmq4</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.jd.live</groupId>
+            <artifactId>joylive-router-grpc</artifactId>
         </dependency>
         <dependency>
             <groupId>com.jd.live</groupId>
@@ -237,7 +257,11 @@
         </dependency>
         <dependency>
             <groupId>com.jd.live</groupId>
-            <artifactId>joylive-transmission-httpservlet</artifactId>
+            <artifactId>joylive-transmission-servlet-javax</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.jd.live</groupId>
+            <artifactId>joylive-transmission-servlet-jakarta</artifactId>
         </dependency>
         <dependency>
             <groupId>com.jd.live</groupId>

@@ -87,6 +87,11 @@ public interface Constants {
     String LABEL_INSTANCE_IP = LABEL_LIVE_PREFIX + "instance-ip";
 
     /**
+     * Constant for the framework.
+     */
+    String LABEL_FRAMEWORK = LABEL_LIVE_PREFIX + "framework";
+
+    /**
      * Constant for the live agent version.
      */
     String LABEL_AGENT_VERSION = LABEL_LIVE_PREFIX + "agent-version";
@@ -132,8 +137,22 @@ public interface Constants {
     String LABEL_SERVICE_CONSUMER = LABEL_SERVICE_PREFIX + "consumer";
 
     /**
+     * Key for the timestamp property of the endpoint.
+     */
+    String LABEL_TIMESTAMP = "timestamp";
+    /**
+     * Key for the weight property of the endpoint.
+     */
+    String LABEL_WEIGHT = "weight";
+    /**
+     * Key for the warmup period property of the endpoint.
+     */
+    String LABEL_WARMUP = "warmup";
+
+    /**
      * Default value for labels.
      */
     String DEFAULT_VALUE = "";
+
 }
 

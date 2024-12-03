@@ -1,5 +1,47 @@
 # Release History
 
+## 1.5.2
+
+1. Hot fix for policy timed update
+
+## 1.5.1
+
+1. Hot fix for swimlane policy
+
+## 1.5.0
+
+1. Added support for routing governance of outbound traffic from Spring Cloud gRPC
+2. Added support for synchronizing policies from Nacos configuration center
+3. Added support for Spring Cloud Hoxton & 2020 & 2022
+4. Improved swimlane routing
+5. Added support for configuring write method prefixes in service multi-active strategies
+6. Added support for Fastjson2 as a JSON and JsonPath parser
+7. Fixed the issue of missing circuit breaker metrics
+8. Fixed the problem of stack overflow when getting weights
+9. Fixed other issues
+
+## 1.4.0
+
+1. Supports Spring Cloud gRPC inbound traffic governance
+2. Support for cluster priority routing
+3. InboundFilter has been changed to asynchronous mode
+4. Support for using JsonPath or ValuePath to get error codes
+5. Optimized liveless service routing
+6. Improved group routing
+7. Retry strategy now includes method matching conditions
+8. Support for disabling conflicting Spring Cloud instance providers
+9. Support for token authentication
+10. Support for leaky bucket and smooth warmup token bucket rate limiting algorithms
+11. Support for rate limiting based on system load
+12. RPC now also supports Query and Cookie matching for hot parameter rate limiting
+13. Service registration now includes warm-up parameters, including startup time, weight, and warm-up time 
+14. Fixed the issue of not being able to return non-standard HTTP response codes 
+15. Fixed routing issues under multiple spaces 
+16. Fixed the issue where retry did not handle wrapped exceptions properly 
+17. Fixed the notification problem of routing 
+18. Fixed the issue of getting response body when Spring Cloud Gateway is in circuit breaking mode 
+19. Fixed the case sensitivity issue with HTTP Header and Cookie names.
+
 ## 1.3.3
 
 1. Fixed the problem that bytecode interceptors did not throw exceptions 

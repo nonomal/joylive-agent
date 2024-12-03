@@ -19,6 +19,8 @@ import com.jd.live.agent.core.extension.annotation.Extensible;
 import com.jd.live.agent.governance.invoke.InboundInvocation;
 import com.jd.live.agent.governance.request.ServiceRequest.InboundRequest;
 
+import java.util.concurrent.CompletionStage;
+
 /**
  * Defines an interface for inbound filters that handle inbound requests.
  * <p>
@@ -55,12 +57,22 @@ public interface InboundFilter {
     /**
      * Execution order for the request limiter filter
      */
-    int ORDER_LIMITER = ORDER_PERMISSION + 100;
+    int ORDER_LOAD_LIMITER = ORDER_PERMISSION + 100;
+
+    /**
+     * Execution order for the request limiter filter
+     */
+    int ORDER_CONCURRENCY_LIMITER = ORDER_LOAD_LIMITER + 100;
+
+    /**
+     * Execution order for the request limiter filter
+     */
+    int ORDER_RATE_LIMITER = ORDER_CONCURRENCY_LIMITER + 100;
 
     /**
      * Execution order for the live unit filter
      */
-    int ORDER_LIVE_UNIT = ORDER_LIMITER + 100;
+    int ORDER_LIVE_UNIT = ORDER_RATE_LIMITER + 100;
 
     /**
      * Execution order for the live cell filter
@@ -83,7 +95,7 @@ public interface InboundFilter {
      * @param chain      Represents the filter chain, providing a way to pass control to the next filter in the chain.
      * @param <T>        The type of the inbound request.
      */
-    <T extends InboundRequest> void filter(InboundInvocation<T> invocation, InboundFilterChain chain);
+    <T extends InboundRequest> CompletionStage<Object> filter(InboundInvocation<T> invocation, InboundFilterChain chain);
 
 }
 

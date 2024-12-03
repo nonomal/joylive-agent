@@ -62,7 +62,7 @@ public class GatewayClusterRequest extends AbstractClusterRequest<ServerHttpRequ
                                  ReactiveLoadBalancer.Factory<ServiceInstance> factory,
                                  RetryConfig retryConfig,
                                  GatewayConfig gatewayConfig) {
-        super(exchange.getRequest(), factory);
+        super(exchange.getRequest(), factory, null);
         this.exchange = exchange;
         this.uri = exchange.getAttributeOrDefault(GATEWAY_REQUEST_URL_ATTR, exchange.getRequest().getURI());
         this.chain = chain;

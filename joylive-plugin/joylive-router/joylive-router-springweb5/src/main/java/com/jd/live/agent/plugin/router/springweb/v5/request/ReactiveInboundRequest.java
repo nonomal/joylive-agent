@@ -22,12 +22,17 @@ import com.jd.live.agent.governance.request.AbstractHttpRequest.AbstractHttpInbo
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.web.reactive.HandlerResult;
 import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 
 import static com.jd.live.agent.core.util.type.ClassUtils.loadClass;
+import static com.jd.live.agent.plugin.router.springweb.v5.exception.SpringInboundThrower.THROWER;
 
 /**
  * ReactiveInboundRequest
@@ -99,5 +104,28 @@ public class ReactiveInboundRequest extends AbstractHttpInboundRequest<ServerHtt
     public String getCookie(String key) {
         HttpCookie cookie = key == null ? null : request.getCookies().getFirst(key);
         return cookie == null ? null : cookie.getValue();
+    }
+
+    /**
+     * Converts a CompletionStage into a Mono that represents the completion of the stage.
+     *
+     * @param stage the CompletionStage to convert into a Mono.
+     * @return a Mono that represents the completion of the stage.
+     */
+    public Mono<HandlerResult> convert(CompletionStage<Object> stage) {
+        CompletableFuture<HandlerResult> future = new CompletableFuture<>();
+        stage.whenComplete((r, t) -> {
+            if (t != null) {
+                future.completeExceptionally(THROWER.createException(t, this));
+            } else if (r == null) {
+                future.complete(null);
+            } else if (r instanceof HandlerResult) {
+                future.complete((HandlerResult) r);
+            } else {
+                future.completeExceptionally(new UnsupportedOperationException(
+                        "Expected type is " + HandlerResult.class.getName() + ", but actual type is " + r.getClass()));
+            }
+        });
+        return Mono.fromCompletionStage(future);
     }
 }

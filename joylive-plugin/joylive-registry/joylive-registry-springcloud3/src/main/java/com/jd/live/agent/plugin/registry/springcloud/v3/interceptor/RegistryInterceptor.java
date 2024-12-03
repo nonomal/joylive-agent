@@ -25,6 +25,7 @@ import com.jd.live.agent.governance.policy.PolicySupplier;
 import com.jd.live.agent.governance.registry.Registry;
 import com.jd.live.agent.governance.registry.ServiceInstance;
 import com.jd.live.agent.governance.registry.ServiceProtocol;
+import org.springframework.boot.SpringBootVersion;
 import org.springframework.cloud.client.DefaultServiceInstance;
 import org.springframework.cloud.client.serviceregistry.Registration;
 
@@ -54,7 +55,8 @@ public class RegistryInterceptor extends AbstractRegistryInterceptor {
         Registration registration = (Registration) ctx.getArguments()[0];
         Map<String, String> metadata = registration.getMetadata();
         if (metadata != null) {
-            application.labelRegistry(metadata::putIfAbsent);
+            application.labelRegistry(metadata::putIfAbsent, true);
+            metadata.put(Constants.LABEL_FRAMEWORK, "spring-boot-" + SpringBootVersion.getVersion());
         }
         policySupplier.subscribe(registration.getServiceId());
         super.onEnter(ctx);

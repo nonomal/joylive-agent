@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: grpc-consumer
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR}
+        namespace: ${NACOS_NAMESPACE:public}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+grpc:
+  client:
+    grpc-provider:
+      address: 'discovery:///grpc-provider'
+      #static address
+      #address: 'static://127.0.0.1:9898'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+
+server:
+  port: 8080 # Web Server

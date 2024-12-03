@@ -16,13 +16,11 @@
 package com.jd.live.agent.plugin.router.springcloud.v3.cluster;
 
 import com.jd.live.agent.core.util.Futures;
-import com.jd.live.agent.core.util.type.ClassDesc;
 import com.jd.live.agent.core.util.type.ClassUtils;
 import com.jd.live.agent.core.util.type.FieldDesc;
-import com.jd.live.agent.core.util.type.FieldList;
-import com.jd.live.agent.governance.policy.service.circuitbreak.DegradeConfig;
 import com.jd.live.agent.governance.exception.ErrorPredicate;
 import com.jd.live.agent.governance.exception.ServiceError;
+import com.jd.live.agent.governance.policy.service.circuitbreak.DegradeConfig;
 import com.jd.live.agent.plugin.router.springcloud.v3.instance.SpringEndpoint;
 import com.jd.live.agent.plugin.router.springcloud.v3.request.ReactiveClusterRequest;
 import com.jd.live.agent.plugin.router.springcloud.v3.response.ReactiveClusterResponse;
@@ -46,6 +44,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+
+import static com.jd.live.agent.core.util.type.ClassUtils.getValue;
 
 /**
  * Represents a client cluster that handles outbound requests and responses for services
@@ -73,11 +73,15 @@ public class ReactiveCluster extends AbstractClientCluster<ReactiveClusterReques
 
     private static final String FIELD_LOAD_BALANCER_FACTORY = "loadBalancerFactory";
 
+    private static final String FIELD_PROPERTIES = "properties";
+
     private static final String FIELD_TRANSFORMERS = "transformers";
 
     private final LoadBalancedExchangeFilterFunction filterFunction;
 
     private final ReactiveLoadBalancer.Factory<ServiceInstance> loadBalancerFactory;
+
+    private final LoadBalancerProperties loadBalancerProperties;
 
     private final List<LoadBalancerClientRequestTransformer> transformers;
 
@@ -88,19 +92,19 @@ public class ReactiveCluster extends AbstractClientCluster<ReactiveClusterReques
      *
      * @param filterFunction The {@link LoadBalancedExchangeFilterFunction} used to filter exchange functions.
      */
-    @SuppressWarnings("unchecked")
     public ReactiveCluster(LoadBalancedExchangeFilterFunction filterFunction) {
         this.filterFunction = filterFunction;
-        ClassDesc describe = ClassUtils.describe(filterFunction.getClass());
-        FieldList fieldList = describe.getFieldList();
-        FieldDesc field = fieldList.getField(FIELD_LOAD_BALANCER_FACTORY);
-        this.loadBalancerFactory = (ReactiveLoadBalancer.Factory<ServiceInstance>) (field == null ? null : field.get(filterFunction));
-        field = fieldList.getField(FIELD_TRANSFORMERS);
-        this.transformers = (List<LoadBalancerClientRequestTransformer>) (field == null ? null : field.get(filterFunction));
+        this.loadBalancerFactory = getValue(filterFunction, FIELD_LOAD_BALANCER_FACTORY);
+        this.loadBalancerProperties = getValue(loadBalancerFactory, FIELD_PROPERTIES, v -> v instanceof LoadBalancerProperties);
+        this.transformers = getValue(filterFunction, FIELD_TRANSFORMERS);
     }
 
     public ReactiveLoadBalancer.Factory<ServiceInstance> getLoadBalancerFactory() {
         return loadBalancerFactory;
+    }
+
+    public LoadBalancerProperties getLoadBalancerProperties() {
+        return loadBalancerProperties;
     }
 
     @Override
@@ -126,8 +130,7 @@ public class ReactiveCluster extends AbstractClientCluster<ReactiveClusterReques
     @SuppressWarnings("unchecked")
     @Override
     public void onSuccess(ReactiveClusterResponse response, ReactiveClusterRequest request, SpringEndpoint endpoint) {
-        LoadBalancerProperties properties = request.getProperties();
-        boolean useRawStatusCodeInResponseData = properties != null && properties.isUseRawStatusCodeInResponseData();
+        boolean useRawStatusCodeInResponseData = isUseRawStatusCodeInResponseData(request.getProperties());
         request.lifecycles(l -> l.onComplete(new CompletionContext<>(
                 CompletionContext.Status.SUCCESS,
                 request.getLbRequest(),
